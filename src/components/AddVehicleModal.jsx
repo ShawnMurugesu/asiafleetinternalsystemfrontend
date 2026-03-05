@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const AddVehicleModal = ({ onClose, refreshFleets }) => {
     const [categories, setCategories] = useState([]);
@@ -53,7 +54,7 @@ const AddVehicleModal = ({ onClose, refreshFleets }) => {
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files);
         if (files.length + images.length > 5) {
-            alert('You can only upload up to 5 images.');
+            toast.error('You can only upload up to 5 images.');
             return;
         }
 
@@ -77,6 +78,23 @@ const AddVehicleModal = ({ onClose, refreshFleets }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Basic Validations
+        if (!formData.make || !formData.model || !formData.year || !formData.price || !formData.category) {
+            toast.error('Please fill in all required fields.');
+            return;
+        }
+
+        if (formData.year.toString().length !== 4) {
+            toast.error('Please enter a valid 4-digit year.');
+            return;
+        }
+
+        if (images.length === 0) {
+            toast.error('Please upload at least one image.');
+            return;
+        }
+
         setLoading(true);
 
         const data = new FormData();
@@ -96,12 +114,12 @@ const AddVehicleModal = ({ onClose, refreshFleets }) => {
             await api.post('/fleets', data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            alert('Vehicle added successfully!');
+            toast.success('Vehicle added successfully!');
             refreshFleets();
             onClose();
         } catch (error) {
             console.error('Error creating fleet:', error);
-            alert(`Failed to create vehicle: ${error.response?.data?.error || error.message}`);
+            toast.error(`Failed to create vehicle: ${error.response?.data?.error || error.message}`);
         } finally {
             setLoading(false);
         }

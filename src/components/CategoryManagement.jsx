@@ -1,27 +1,40 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const CategoryManagement = () => {
     const [categories, setCategories] = useState([]);
     const [newCategory, setNewCategory] = useState('');
+    const [adding, setAdding] = useState(false);
 
     useEffect(() => {
         fetchCategories();
     }, []);
 
     const fetchCategories = async () => {
-        const res = await api.get('/categories');
-        setCategories(res.data);
+        try {
+            const res = await api.get('/categories');
+            setCategories(res.data);
+        } catch (error) {
+            toast.error('Error fetching categories');
+        }
     };
 
     const handleAdd = async () => {
-        if (!newCategory) return;
+        if (!newCategory) {
+            toast.error('Please enter a category name');
+            return;
+        }
+        setAdding(true);
         try {
             await api.post('/categories', { name: newCategory });
+            toast.success('Category added successfully!');
             setNewCategory('');
             fetchCategories();
         } catch (error) {
-            alert('Error adding category');
+            toast.error('Error adding category');
+        } finally {
+            setAdding(false);
         }
     };
 
@@ -37,7 +50,13 @@ const CategoryManagement = () => {
                         className="border p-2 rounded flex-1"
                         placeholder="New Category Name"
                     />
-                    <button onClick={handleAdd} className="bg-green-600 text-white px-4 py-2 rounded">Add</button>
+                    <button
+                        onClick={handleAdd}
+                        disabled={adding}
+                        className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300"
+                    >
+                        {adding ? 'Adding...' : 'Add'}
+                    </button>
                 </div>
             </div>
             <div className="bg-white shadow rounded-lg p-6">

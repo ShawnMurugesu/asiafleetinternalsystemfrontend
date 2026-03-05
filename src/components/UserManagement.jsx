@@ -1,11 +1,14 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const UserManagement = () => {
     const { user: currentUser } = useContext(AuthContext);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
+    const [resetting, setResetting] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -28,6 +31,7 @@ const UserManagement = () => {
             const res = await api.get('/users');
             setUsers(res.data);
         } catch (error) {
+            toast.error('Error fetching users');
             console.error('Error fetching users:', error);
         } finally {
             setLoading(false);
@@ -37,43 +41,63 @@ const UserManagement = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         if (formData.role === 'Super admin') {
-            alert('Cannot create Super admin users');
+            toast.error('Cannot create Super admin users');
             return;
         }
+        setCreating(true);
         try {
             await api.post('/users', formData);
-            alert(`User created successfully with temporary password. They will be forced to change it on first login.`);
+            toast.success('User created successfully!');
             setFormData({ username: '', password: '', role: 'viewer' });
             fetchUsers();
         } catch (error) {
-            alert('Error creating user: ' + (error.response?.data?.message || error.message));
+            toast.error(error.response?.data?.message || 'Error creating user');
+        } finally {
+            setCreating(false);
         }
     };
 
     const handleResetPassword = async (id) => {
+        if (!resetPassword) {
+            toast.error('Please enter a new password');
+            return;
+        }
+        setResetting(true);
         try {
             await api.put(`/users/${id}`, { password: resetPassword });
-            alert('Password reset successfully');
+            toast.success('Password reset successfully');
             setResetId(null);
             setResetPassword('');
         } catch (error) {
-            alert('Error resetting password');
+            toast.error('Error resetting password');
+        } finally {
+            setResetting(false);
         }
     };
 
-    const handleDeleteRequest = async (user) => {
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmUser, setConfirmUser] = useState(null);
+
+    const triggerDeleteRequest = (user) => {
         if (user.role === 'Super admin') {
-            alert('Super admin cannot be deleted');
+            toast.error('Super admin cannot be deleted');
             return;
         }
-        if (confirm(`Request deletion for user ${user.username}? This requires Manager approval.`)) {
-            try {
-                await api.delete(`/users/${user._id}/request`);
-                alert('Deletion request sent to Manager');
-                fetchUsers();
-            } catch (error) {
-                alert(error.response?.data?.message || 'Error requesting deletion');
-            }
+        setConfirmUser(user);
+        setShowConfirmModal(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        const user = confirmUser;
+        setShowConfirmModal(false);
+        try {
+            await api.delete(`/users/${user._id}/request`);
+            toast.success('Deletion request sent to Manager');
+            fetchUsers();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error requesting deletion');
+        } finally {
+            setConfirmUser(null);
         }
     };
 
@@ -128,9 +152,10 @@ const UserManagement = () => {
                             </div>
                             <button
                                 type="submit"
-                                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all text-sm mt-4"
+                                disabled={creating}
+                                className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all text-sm mt-4 disabled:bg-blue-300"
                             >
-                                Create User
+                                {creating ? 'Creating...' : 'Create User'}
                             </button>
                         </form>
                     </div>
@@ -173,8 +198,15 @@ const UserManagement = () => {
                                                                 className="px-3 py-1 bg-gray-50 border-none rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-200"
                                                                 value={resetPassword}
                                                                 onChange={(e) => setResetPassword(e.target.value)}
+                                                                disabled={resetting}
                                                             />
-                                                            <button onClick={() => handleResetPassword(user._id)} className="text-green-600 hover:text-green-800 text-xs">Save</button>
+                                                            <button
+                                                                onClick={() => handleResetPassword(user._id)}
+                                                                disabled={resetting}
+                                                                className="text-green-600 hover:text-green-800 text-xs disabled:text-green-300"
+                                                            >
+                                                                {resetting ? 'Saving...' : 'Save'}
+                                                            </button>
                                                             <button onClick={() => setResetId(null)} className="text-gray-400 hover:text-gray-600 text-xs">Cancel</button>
                                                         </div>
                                                     ) : (
@@ -184,7 +216,7 @@ const UserManagement = () => {
                                                     )
                                                 )}
                                                 <button
-                                                    onClick={() => handleDeleteRequest(user)}
+                                                    onClick={() => triggerDeleteRequest(user)}
                                                     disabled={user.role === 'Super admin'}
                                                     className={`p-1.5 rounded-lg transition-all ${user.role === 'Super admin' ? 'text-gray-200 cursor-not-allowed' : 'text-red-500 hover:bg-red-50 hover:text-red-700'}`}
                                                     title={user.role === 'Super admin' ? 'Super Admin cannot be deleted' : 'Request Deletion'}
@@ -200,6 +232,35 @@ const UserManagement = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Confirmation Modal (Wizard) */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] animate-fadeIn backdrop-blur-sm">
+                    <div className="bg-white p-8 rounded-2xl w-[450px] shadow-2xl animate-scale-in">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 rounded-xl bg-red-100 text-red-600">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800">Request User Deletion</h3>
+                        </div>
+
+                        <p className="text-sm text-gray-500 leading-relaxed mb-8">
+                            Are you sure you want to request deletion for user <strong>{confirmUser?.username}</strong>?
+                            This requires Manager approval before the user is permanently removed.
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setShowConfirmModal(false)} className="px-6 py-2.5 text-sm font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest">Cancel</button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                className="px-8 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm shadow-lg shadow-red-100 hover:bg-red-700 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                            >
+                                Confirm Request
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

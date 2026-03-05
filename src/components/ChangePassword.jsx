@@ -2,27 +2,31 @@ import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const ChangePassword = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (password !== confirmPassword) {
-            setError('Passwords do not match');
+            toast.error('Passwords do not match');
             return;
         }
+        setLoading(true);
         try {
             await api.put(`/users/${user.id}`, { password });
-            alert('Password updated successfully. Please login again.');
+            toast.success('Password updated successfully. Please login again.');
             logout();
             navigate('/login');
         } catch (err) {
-            setError(err.response?.data?.message || 'Error updating password');
+            toast.error(err.response?.data?.message || 'Error updating password');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -60,10 +64,13 @@ const ChangePassword = () => {
                             />
                         </div>
                     </div>
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
                     <div>
-                        <button type="submit" className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            Update Password
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+                        >
+                            {loading ? 'Updating...' : 'Update Password'}
                         </button>
                     </div>
                 </form>

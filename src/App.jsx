@@ -9,12 +9,14 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ChangePassword from './components/ChangePassword';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
+          <Toaster position="top-right" reverseOrder={false} />
           <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />

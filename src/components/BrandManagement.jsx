@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const BrandManagement = () => {
     const [brands, setBrands] = useState([]);
     const [newBrand, setNewBrand] = useState('');
     const [selectedBrand, setSelectedBrand] = useState(null);
     const [newModel, setNewModel] = useState('');
+    const [brandAdding, setBrandAdding] = useState(false);
+    const [modelAdding, setModelAdding] = useState(false);
+    const [brandDeleting, setBrandDeleting] = useState(null);
+    const [modelDeleting, setModelDeleting] = useState(null);
 
     useEffect(() => {
         fetchBrands();
@@ -17,59 +22,75 @@ const BrandManagement = () => {
             setBrands(res.data);
         } catch (error) {
             console.error('Error fetching brands:', error);
+            toast.error('Error fetching brands');
         }
     };
 
     const handleAddBrand = async (e) => {
         e.preventDefault();
+        setBrandAdding(true);
         try {
             await api.post('/brands', { name: newBrand });
             setNewBrand('');
             fetchBrands();
-            alert('Brand added successfully');
+            toast.success('Brand added successfully');
         } catch (error) {
             console.error('Error adding brand:', error);
-            alert(`Failed to add brand: ${error.response?.data?.error || error.message}`);
+            toast.error(`Failed to add brand: ${error.response?.data?.error || error.message}`);
+        } finally {
+            setBrandAdding(false);
         }
     };
 
     const handleDeleteBrand = async (id) => {
         if (!confirm('Are you sure? This will delete the brand.')) return;
+        setBrandDeleting(id);
         try {
             await api.delete(`/brands/${id}`);
             if (selectedBrand && selectedBrand._id === id) setSelectedBrand(null);
             fetchBrands();
+            toast.success('Brand deleted successfully');
         } catch (error) {
             console.error('Error deleting brand:', error);
+            toast.error('Error deleting brand');
+        } finally {
+            setBrandDeleting(null);
         }
     };
 
     const handleAddModel = async (e) => {
         e.preventDefault();
         if (!selectedBrand) return;
+        setModelAdding(true);
         try {
             const res = await api.post(`/brands/${selectedBrand._id}/models`, { model: newModel });
             setNewModel('');
-            // Update local state directly or refetch
             const updatedBrand = res.data;
             setBrands(brands.map(b => b._id === updatedBrand._id ? updatedBrand : b));
             setSelectedBrand(updatedBrand);
-            alert('Model added successfully');
+            toast.success('Model added successfully');
         } catch (error) {
             console.error('Error adding model:', error);
-            alert(`Failed to add model: ${error.response?.data?.error || error.message}`);
+            toast.error(`Failed to add model: ${error.response?.data?.error || error.message}`);
+        } finally {
+            setModelAdding(false);
         }
     };
 
     const handleDeleteModel = async (modelName) => {
         if (!selectedBrand) return;
+        setModelDeleting(modelName);
         try {
             const res = await api.delete(`/brands/${selectedBrand._id}/models/${modelName}`);
             const updatedBrand = res.data;
             setBrands(brands.map(b => b._id === updatedBrand._id ? updatedBrand : b));
             setSelectedBrand(updatedBrand);
+            toast.success('Model removed successfully');
         } catch (error) {
             console.error('Error deleting model:', error);
+            toast.error('Error removing model');
+        } finally {
+            setModelDeleting(null);
         }
     };
 
@@ -87,7 +108,9 @@ const BrandManagement = () => {
                         className="border p-2 rounded flex-1"
                         required
                     />
-                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
+                    <button type="submit" disabled={brandAdding} className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-blue-300">
+                        {brandAdding ? 'Adding...' : 'Add'}
+                    </button>
                 </form>
                 <ul className="divide-y">
                     {brands.map(brand => (
@@ -99,9 +122,10 @@ const BrandManagement = () => {
                             <span className="font-medium">{brand.name}</span>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteBrand(brand._id); }}
-                                className="text-red-500 hover:text-red-700 text-sm"
+                                disabled={brandDeleting === brand._id}
+                                className="text-red-500 hover:text-red-700 text-sm disabled:text-red-300"
                             >
-                                Delete
+                                {brandDeleting === brand._id ? 'Deleting...' : 'Delete'}
                             </button>
                         </li>
                     ))}
@@ -125,7 +149,9 @@ const BrandManagement = () => {
                                 className="border p-2 rounded flex-1"
                                 required
                             />
-                            <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">Add Model</button>
+                            <button type="submit" disabled={modelAdding} className="bg-green-600 text-white px-4 py-2 rounded disabled:bg-green-300">
+                                {modelAdding ? 'Adding...' : 'Add Model'}
+                            </button>
                         </form>
 
                         {selectedBrand.models && selectedBrand.models.length > 0 ? (
@@ -135,9 +161,10 @@ const BrandManagement = () => {
                                         <span>{model}</span>
                                         <button
                                             onClick={() => handleDeleteModel(model)}
-                                            className="text-red-500 hover:text-red-700 text-sm"
+                                            disabled={modelDeleting === model}
+                                            className="text-red-500 hover:text-red-700 text-sm disabled:text-red-300"
                                         >
-                                            Remove
+                                            {modelDeleting === model ? 'Removing...' : 'Remove'}
                                         </button>
                                     </li>
                                 ))}

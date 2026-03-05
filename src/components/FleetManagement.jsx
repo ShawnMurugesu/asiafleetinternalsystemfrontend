@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import toast from 'react-hot-toast';
 
 import FleetDetailsModal from './FleetDetailsModal';
 import AddVehicleModal from './AddVehicleModal';
@@ -15,6 +16,7 @@ const FleetManagement = () => {
     const [selectedFleetForModal, setSelectedFleetForModal] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [deletingId, setDeletingId] = useState(null);
 
     // Filter State
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +34,7 @@ const FleetManagement = () => {
                 setFleets(fleetsRes.data);
             } catch (error) {
                 console.error('Error fetching fleets:', error);
+                toast.error('Error fetching fleets');
             }
 
             try {
@@ -53,6 +56,7 @@ const FleetManagement = () => {
                 }
             } catch (error) {
                 console.error('Error fetching metadata:', error);
+                toast.error('Error fetching metadata');
             }
 
             try {
@@ -69,18 +73,25 @@ const FleetManagement = () => {
     }, []);
 
     const fetchFleets = async () => {
-        const res = await api.get('/fleets');
-        setFleets(res.data);
+        try {
+            const res = await api.get('/fleets');
+            setFleets(res.data);
+        } catch (error) {
+            toast.error('Error refreshing fleets');
+        }
     };
 
     const handleDelete = async (id) => {
         if (confirm('A deletion request will be sent to the manager for approval. Proceed?')) {
+            setDeletingId(id);
             try {
                 await api.post(`/fleets/${id}/delete-request`);
-                alert('Deletion request sent correctly.');
+                toast.success('Deletion request sent correctly.');
                 fetchFleets();
             } catch (error) {
-                alert(error.response?.data?.message || 'Error sending deletion request');
+                toast.error(error.response?.data?.message || 'Error sending deletion request');
+            } finally {
+                setDeletingId(null);
             }
         }
     };
@@ -269,7 +280,13 @@ const FleetManagement = () => {
                                     )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(fleet._id); }} className="text-red-600 hover:text-red-900">Delete</button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(fleet._id); }}
+                                        disabled={deletingId === fleet._id}
+                                        className="text-red-600 hover:text-red-900 disabled:text-red-300"
+                                    >
+                                        {deletingId === fleet._id ? 'Deleting...' : 'Delete'}
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -289,7 +306,7 @@ const FleetManagement = () => {
                     fleet={selectedFleetForModal}
                     onClose={() => setSelectedFleetForModal(null)}
                     users={users}
-                    isAdmin={true}
+                    isAdmin={['Super admin', 'admin', 'Manager', 'MD', 'sales person'].map(r => r.toLowerCase()).includes(user?.role?.toLowerCase())}
                     refreshFleets={fetchFleets}
                 />
             )}

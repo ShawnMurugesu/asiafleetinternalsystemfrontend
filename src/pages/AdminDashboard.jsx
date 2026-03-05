@@ -249,7 +249,7 @@ const Overview = () => {
                     onClose={() => setSelectedFleet(null)}
                     refreshFleets={fetchData}
                     users={users}
-                    isAdmin={true}
+                    isAdmin={['Super admin', 'admin', 'Manager', 'MD', 'sales person'].map(r => r.toLowerCase()).includes(user?.role?.toLowerCase())}
                 />
             )}
         </div>
